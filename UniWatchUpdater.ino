@@ -2,6 +2,38 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
 #include <ESP8266HTTPClient.h>
+#include "FS.h"
+/*
+ * This sketch is meant to be uploaded with the following files already in the filesystem:
+ * OTAWIFI - contaist two lines - first contains SSID and the second one the password. Lines are separated by \n
+ *
+ * If there is no such a file on a fs, then set the options accordingly
+ */
+
+//#define OTAWIFI_FILE_NOT_AVAILABLE
+//#define OTA_SSID "test"
+//#define OTA_password "test"
+int ConnectToWifi(FS &spiffs)
+{
+#ifndef OTAWIFI_FILE_NOT_AVAILABLE
+	auto f = spiffs.open("/OTAWIFI", "r");
+	char networkName[50];
+	auto l = f.readBytesUntil('\n', &networkName[0],50);
+	networkName[l] = '\0';
+
+	char password[50];
+	l = f.readBytesUntil('\n', &password[0], 50);
+	password[l] = '\0';
+
+	WiFi.begin(networkName, password);
+	delay(3000);
+	return WiFi.isConnected();
+#else
+	WiFi.begin(OTA_SSID, OTA_password);
+	delay(3000);
+	return WiFi.isConnected();
+#endif
+}
 void SetupOTA(){
     ArduinoOTA.onStart([]() {
       String type;
@@ -42,8 +74,18 @@ void SetupOTA(){
     ArduinoOTA.begin();
    }
 void setup() {
-  // put your setup code here, to run once:
-
+	Serial.begin(115200);
+	SPIFFS.begin();
+	if (ConnectToWifi(SPIFFS))
+	{
+		Serial.printf("Connected!");
+		SetupOTA();
+		Serial.printf("OTA READY!");
+	}else
+	{
+		Serial.printf("Could not connect\n");
+	}
+	
 }
 
 void loop() {
